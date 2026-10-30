@@ -174,7 +174,12 @@ function syncEditionSources(
 ): void {
   tx.delete(editionSources).where(eq(editionSources.editionId, editionId)).run();
 
+  // One edition may have several Open Library edition links, but this table
+  // enforces a single row per (edition, provider). Retain one canonical row.
+  const sourcesSeen = new Set<string>();
   for (const meta of candidate.sourceMeta) {
+    if (sourcesSeen.has(meta.name)) continue;
+    sourcesSeen.add(meta.name);
     tx.insert(editionSources)
       .values({
         editionId,
