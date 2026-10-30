@@ -15,7 +15,6 @@ import type {
 } from '@booknest/shared';
 import { parseISBN } from '@booknest/shared';
 import { fetchJson } from '../../lib/http.js';
-import { mapOLDocToCandidate } from './mapper.js';
 import { mapEdition, type OLEditionsResponse } from './edition.js';
 import type { OLSearchResponse } from './types.js';
 
@@ -102,11 +101,6 @@ export class OpenLibraryProvider implements BookProvider {
     });
     return { candidates: await mapEditionDocs(data, signal), snapshot: data };
   }
-}
-
-function mapDocs(data: OLSearchResponse) {
-  if (!data.docs) return [];
-  return data.docs.map(mapOLDocToCandidate).filter((c): c is NonNullable<ReturnType<typeof mapOLDocToCandidate>> => c !== null);
 }
 
 function olLangCode(iso6391: string): string | undefined {
