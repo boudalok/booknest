@@ -125,7 +125,7 @@ async function fetchFromProvider(
     provider: config.name,
     queryType: query.queryType,
     // Invalidate cached empty Google results from the previous strict title query.
-    query: config.name === 'google_books' ? `google-v2:${cacheQueryString(query)}` : cacheQueryString(query),
+    query: config.name === 'google_books' ? `google-v3:${cacheQueryString(query)}` : cacheQueryString(query),
     language: query.language,
   });
 
@@ -168,10 +168,8 @@ async function fetchFromProvider(
     const msg = (e as Error).message;
     console.warn(`[provider] ${config.name} failed: ${msg.replace(/https?:\/\/\S+/g, '[upstream-url]')}`);
     recordFailure(config.name, msg);
-    writeCache(cacheKey, [] as BookCandidate[], env.FAILURE_CACHE_TTL_DAYS, {
-      query: cacheQueryString(query),
-      queryType: query.queryType,
-    });
+    // Transient provider failures must not masquerade as genuine empty results.
+    // Circuit-breaker/rate limiter already protect the upstream from retries.
     return { candidates: [], snapshot: null };
   } finally {
     clearTimeout(timer);
