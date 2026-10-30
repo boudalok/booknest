@@ -16,6 +16,7 @@ import type {
 import { detectISBNFormat } from '@booknest/shared';
 import { fetchJson } from '../../lib/http.js';
 import { mapOLDocToCandidate } from './mapper.js';
+import { mapEdition, type OLEditionsResponse } from './edition.js';
 import type { OLSearchResponse } from './types.js';
 
 const BASE = 'https://openlibrary.org/search.json';
@@ -87,7 +88,7 @@ export class OpenLibraryProvider implements BookProvider {
       timeoutMs: 8000,
       signal,
     });
-    return { candidates: mapDocs(data), snapshot: data };
+    return { candidates: await mapEditionDocs(data, signal), snapshot: data };
   }
 
   async searchByAuthor(params: SearchAuthorParams, signal?: AbortSignal): Promise<ProviderFetchResult> {
@@ -124,4 +125,27 @@ function olLangCode(iso6391: string): string | undefined {
     it: 'ita',
   };
   return map[iso6391.toLowerCase()];
+}
+
+
+/**
+ * Title/author searches return WORKS, not editions. Resolve each work to its
+ * editions before emitting any ISBN. Never reuse the work-level cover, page
+ * count, date, or unordered ISBN list as edition-specific evidence.
+ * Bound enrichment to eight works to avoid excessive upstream requests.
+ */
+async function mapEditionDocs(data: OLSearchResponse, signal?: AbortSignal) {
+  const candidates: ReturnType<typeof mapEdition> = [];
+  const works = (data.docs ?? []).filter((doc) => /^\/works\/OL[^/]+W$/.test(doc.key)).slice(0, 8);
+  const results = await Promise.allSettled(works.map(async (work) => {
+    const url = `https://openlibrary.org${work.key}/editions.json?limit=100`;
+    const editions = await fetchJson<OLEditionsResponse>(url, {
+      provider: 'open_library',
+      timeoutMs: 8000,
+      signal,
+    });
+    return (editions.entries ?? []).flatMap((edition) => mapEdition(edition, work));
+  }));
+  for (const result of results) if (result.status === 'fulfilled') candidates.push(...result.value);
+  return candidates;
 }
