@@ -13,7 +13,7 @@ import type {
   SearchAuthorParams,
   SearchTitleParams,
 } from '@booknest/shared';
-import { detectISBNFormat } from '@booknest/shared';
+import { parseISBN } from '@booknest/shared';
 import { fetchJson } from '../../lib/http.js';
 import { mapOLDocToCandidate } from './mapper.js';
 import { mapEdition, type OLEditionsResponse } from './edition.js';
@@ -63,12 +63,9 @@ export class OpenLibraryProvider implements BookProvider {
       timeoutMs: 8000,
       signal,
     });
-    const candidates = mapDocs(data);
-    const format = detectISBNFormat(isbn);
-    for (const c of candidates) {
-      if (format === 'isbn13') c.isbn13 = isbn;
-      else if (format === 'isbn10') c.isbn10 = isbn;
-    }
+    const expected = parseISBN(isbn)?.isbn13;
+    const resolved = await mapEditionDocs(data, signal);
+    const candidates = resolved.filter((candidate) => candidate.isbn13 === expected);
     return { candidates, snapshot: data };
   }
 
@@ -103,7 +100,7 @@ export class OpenLibraryProvider implements BookProvider {
       timeoutMs: 8000,
       signal,
     });
-    return { candidates: mapDocs(data), snapshot: data };
+    return { candidates: await mapEditionDocs(data, signal), snapshot: data };
   }
 }
 
