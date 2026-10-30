@@ -124,12 +124,14 @@ async function fetchFromProvider(
   const cacheKey = buildCacheKey({
     provider: config.name,
     queryType: query.queryType,
-    query: cacheQueryString(query),
+    // Invalidate cached empty Google results from the previous strict title query.
+    query: config.name === 'google_books' ? `google-v2:${cacheQueryString(query)}` : cacheQueryString(query),
     language: query.language,
   });
 
   const cached = readCache<BookCandidate[]>(cacheKey);
   if (cached !== null) {
+    console.info(`[provider] ${config.name} cache-hit count=${cached.length}`);
     return { candidates: cached, snapshot: null };
   }
 
@@ -147,6 +149,7 @@ async function fetchFromProvider(
 
   try {
     const outcome = await queryProvider(provider, query, ctrl.signal);
+    console.info(`[provider] ${config.name} fetched count=${outcome.candidates.length}`);
     recordSuccess(config.name);
     if (outcome.snapshot !== null) {
       recordSnapshot({
@@ -163,6 +166,7 @@ async function fetchFromProvider(
     return outcome;
   } catch (e) {
     const msg = (e as Error).message;
+    console.warn(`[provider] ${config.name} failed: ${msg.replace(/https?:\/\/\S+/g, '[upstream-url]')}`);
     recordFailure(config.name, msg);
     writeCache(cacheKey, [] as BookCandidate[], env.FAILURE_CACHE_TTL_DAYS, {
       query: cacheQueryString(query),
