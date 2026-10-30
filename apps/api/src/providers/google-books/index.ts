@@ -40,8 +40,11 @@ export class GoogleBooksProvider implements BookProvider {
   }
 
   async searchByTitle(params: SearchTitleParams, signal?: AbortSignal): Promise<ProviderFetchResult> {
-    const qParts = [`intitle:"${params.title}"`];
-    if (params.author) qParts.push(`inauthor:"${params.author}"`);
+    // English author names are not split by the v0.1 query parser.
+    // Avoid demanding author words as an exact part of the book title.
+    const qParts = params.author
+      ? [`intitle:"${params.title}"`, `inauthor:"${params.author}"`]
+      : [params.title];
     const url = buildUrl({
       q: qParts.join(' '),
       maxResults: Math.min(params.limit ?? 10, 40),
