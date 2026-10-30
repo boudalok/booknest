@@ -25,7 +25,6 @@ ENV DATABASE_URL=file:/app/data/booknest.db
 ENV PORT=3000
 
 EXPOSE 3000
-VOLUME ["/app/data"]
 
 # tini 转发信号；--import=tsx/esm 让 Node 直接跑 .ts
 ENTRYPOINT ["/sbin/tini", "--"]
